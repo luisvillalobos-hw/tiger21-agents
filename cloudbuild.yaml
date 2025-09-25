@@ -1,0 +1,18 @@
+steps:
+  # Build the frontend
+  - name: 'gcr.io/k8s-skaffold/pack'
+    args:
+      - build
+      - '${_IMAGE_NAME}'
+      - '--builder=gcr.io/buildpacks/builder:latest'
+      - '--path=frontend'
+    id: Buildpack
+
+images:
+  - '${_IMAGE_NAME}'
+
+substitutions:
+  _IMAGE_NAME: 'gcr.io/${PROJECT_ID}/tiger21-agents'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
