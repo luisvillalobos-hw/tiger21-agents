@@ -41,38 +41,59 @@ app.post('/api/agent', async (req, res) => {
 
     console.log(`Calling Agent Engine: ${AGENT_ENGINE_ID}`);
 
+    // Use the Vertex AI SDK to properly communicate with Agent Engine
+    const vertexai = require('@google-cloud/vertexai');
+    const { agent_engines } = vertexai;
+
+    // Initialize Vertex AI
+    vertexai.init({
+      project: PROJECT_ID,
+      location: LOCATION,
+    });
+
     // Get the deployed agent engine using the resource name from our config
     const resourceName = `projects/766839068481/locations/${LOCATION}/reasoningEngines/${AGENT_ENGINE_ID}`;
 
-    // Use the REST API approach with correct authentication
-    const agentEndpoint = `https://${LOCATION}-aiplatform.googleapis.com/v1/${resourceName}:query`;
+    // Get the agent engine
+    const remoteAgent = agent_engines.get(resourceName);
 
-    // Make request to Agent Engine
-    const response = await fetch(agentEndpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        input: message,
-      }),
-    });
-
-    const responseData = await response.json();
-
-    if (!response.ok) {
-      console.error('Agent Engine error:', responseData);
-      throw new Error(responseData.error?.message || `Agent Engine request failed: ${response.status}`);
+    // Create a simple session (non-async version)
+    let sessionId;
+    try {
+      const session = await remoteAgent.create_session({ user_id: "web_user" });
+      sessionId = session.id || session.get("id");
+      console.log(`Created session: ${sessionId}`);
+    } catch (sessionError) {
+      console.error('Session creation error:', sessionError);
+      // Try without session
+      sessionId = null;
     }
+
+    // Query the agent
+    let agentResponse;
+    if (sessionId) {
+      agentResponse = await remoteAgent.query({
+        user_id: "web_user",
+        session_id: sessionId,
+        message: message
+      });
+    } else {
+      // Try direct query without session
+      agentResponse = await remoteAgent.query({
+        input: message
+      });
+    }
+
+    console.log('Agent response received:', agentResponse);
 
     // Return the response
     res.json({
-      output: responseData.output || responseData.result || responseData.response || 'Response received from Agent Engine',
+      output: agentResponse.output || agentResponse.result || agentResponse.response || agentResponse || 'Response received from Agent Engine',
       metadata: {
         projectId: PROJECT_ID,
         location: LOCATION,
         agentEngineId: AGENT_ENGINE_ID,
+        sessionId: sessionId
       }
     });
 
