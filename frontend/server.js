@@ -39,7 +39,7 @@ app.post('/api/agent', async (req, res) => {
     // Get configuration from environment or request
     const PROJECT_ID = config?.projectId || process.env.GOOGLE_CLOUD_PROJECT || 'tiger21-demo';
     const LOCATION = config?.location || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
-    const AGENT_ENGINE_ID = config?.agentEngineId || process.env.AGENT_ENGINE_ID || '2163579398719012864';
+    const AGENT_ENGINE_ID = config?.agentEngineId || process.env.AGENT_ENGINE_ID || '7562269452029394944';
 
     // Import Google Auth Library
     const { GoogleAuth } = require('google-auth-library');

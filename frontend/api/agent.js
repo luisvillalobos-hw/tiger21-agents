@@ -7,7 +7,7 @@ import { VertexAI } from '@google-cloud/vertexai';
 
 const PROJECT_ID = process.env.VITE_GOOGLE_CLOUD_PROJECT || 'tiger21-demo';
 const LOCATION = process.env.VITE_GOOGLE_CLOUD_LOCATION || 'us-central1';
-const AGENT_ENGINE_ID = process.env.VITE_AGENT_ENGINE_ID || '2163579398719012864';
+const AGENT_ENGINE_ID = process.env.VITE_AGENT_ENGINE_ID || '7562269452029394944';
 
 // Initialize Vertex AI client
 const vertexAI = new VertexAI({
