@@ -1,8 +1,9 @@
 {
-  "agent_engine_id": "placeholder",
+  "agent_engine_id": "3662152174726545408",
   "project_id": "tiger21-demo",
   "location": "us-central1",
-  "resource_name": "projects/tiger21-demo/locations/us-central1/reasoningEngines/placeholder",
-  "status": "configured_manually",
-  "note": "Agent engine will be deployed separately. For now, using local ADK agent through backend."
+  "resource_name": "projects/766839068481/locations/us-central1/reasoningEngines/3662152174726545408",
+  "status": "deployed",
+  "deployment_method": "adk_cli",
+  "note": "Successfully deployed HW Deal Sourcing Agent to Agent Engine"
 }

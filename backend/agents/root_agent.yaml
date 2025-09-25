@@ -1,9 +1,0 @@
-# Deal Sourcing Agent Configuration
-# This file provides an alternative way to discover the root_agent
-# The actual agent is defined in Python code
-
-name: "deal_sourcing_coordinator"
-description: "AI-driven agent designed to discover investment opportunities through coordinated deal sourcing"
-type: "python"
-module_path: "agents.agent"
-attribute: "root_agent"
