@@ -39,8 +39,13 @@ app.post('/api/agent', async (req, res) => {
     const client = await auth.getClient();
     const accessToken = await client.getAccessToken();
 
-    // Construct Agent Engine endpoint
-    const agentEndpoint = `https://${LOCATION}-aiplatform.googleapis.com/v1/projects/${PROJECT_ID}/locations/${LOCATION}/reasoningEngines/${AGENT_ENGINE_ID}:query`;
+    console.log(`Calling Agent Engine: ${AGENT_ENGINE_ID}`);
+
+    // Get the deployed agent engine using the resource name from our config
+    const resourceName = `projects/766839068481/locations/${LOCATION}/reasoningEngines/${AGENT_ENGINE_ID}`;
+
+    // Use the REST API approach with correct authentication
+    const agentEndpoint = `https://${LOCATION}-aiplatform.googleapis.com/v1/${resourceName}:query`;
 
     // Make request to Agent Engine
     const response = await fetch(agentEndpoint, {
