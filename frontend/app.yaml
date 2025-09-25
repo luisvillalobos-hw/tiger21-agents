@@ -1,0 +1,39 @@
+runtime: nodejs24
+service: default
+
+handlers:
+  # API routes for Agent Engine proxy
+  - url: /api/.*
+    script: auto
+    secure: always
+
+  # Static files
+  - url: /(.*\.(js|css|map|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot))$
+    static_files: dist/\1
+    upload: dist/.*\.(js|css|map|png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)$
+    secure: always
+    http_headers:
+      Cache-Control: public, max-age=3600
+
+  # Main app
+  - url: /.*
+    static_files: dist/index.html
+    upload: dist/index.html
+    secure: always
+    http_headers:
+      Cache-Control: no-cache, must-revalidate
+
+instance_class: F2
+
+automatic_scaling:
+  min_idle_instances: 1
+  max_idle_instances: 3
+  max_instances: 10
+  min_pending_latency: 30ms
+  max_pending_latency: automatic
+
+env_variables:
+  NODE_ENV: 'production'
+  GOOGLE_CLOUD_PROJECT: 'tiger21-demo'
+  GOOGLE_CLOUD_LOCATION: 'us-central1'
+  # AGENT_ENGINE_ID is dynamically loaded from centralized config
