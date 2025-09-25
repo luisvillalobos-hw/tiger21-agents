@@ -1,0 +1,59 @@
+steps:
+  # Copy backend config to frontend for sync
+  - name: 'alpine'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        echo "📋 Copying backend config for frontend sync..."
+        if [ -f backend/agent_engine_config.json ]; then
+          cp backend/agent_engine_config.json frontend/backend-config.json
+          echo "✅ Backend config copied"
+        else
+          echo "⚠️ Backend config not found, frontend will use fallback values"
+        fi
+    id: 'Copy Backend Config'
+
+  # Install dependencies and build the frontend
+  - name: 'node:20'
+    entrypoint: 'npm'
+    args: ['install']
+    dir: 'frontend'
+    id: 'Install Dependencies'
+
+  - name: 'node:20'
+    entrypoint: 'npm'
+    args: ['run', 'build']
+    dir: 'frontend'
+    id: 'Build Frontend'
+
+  # Deploy Agent Engine if backend changes detected
+  - name: 'python:3.11'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        cd backend
+        pip install --no-cache-dir google-cloud-aiplatform[agent_engines,adk] google-genai pydantic python-dotenv aiohttp requests reportlab markdown beautifulsoup4
+        python3 deploy_agent_engine_fixed.py
+    id: 'Deploy Agent Engine'
+    env:
+      - 'GOOGLE_CLOUD_PROJECT=${PROJECT_ID}'
+
+  # Build the container with buildpacks
+  - name: 'gcr.io/k8s-skaffold/pack'
+    args:
+      - build
+      - '${_IMAGE_NAME}'
+      - '--builder=gcr.io/buildpacks/builder:latest'
+      - '--path=frontend'
+    id: Buildpack
+
+images:
+  - '${_IMAGE_NAME}'
+
+substitutions:
+  _IMAGE_NAME: 'gcr.io/${PROJECT_ID}/tiger21-agents'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
