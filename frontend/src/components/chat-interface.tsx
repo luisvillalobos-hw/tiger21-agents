@@ -94,175 +94,162 @@ export function ChatInterface() {
   }
 
   return (
-    <div className="min-h-screen relative overflow-hidden">
-      {/* Hero Background with Building Image */}
-      <div className="absolute inset-0">
-        {/* Fallback gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-100 via-blue-50 to-indigo-100" />
-
-        {/* Main background image - more visible */}
-        <div
-          className="absolute inset-0 bg-cover bg-center opacity-70"
-          style={{
-            backgroundImage: `url('/modern-city-skyline-slate-professional.jpg'),
-              linear-gradient(135deg, #1e293b 0%, #475569 25%, #64748b 50%, #94a3b8 75%, #cbd5e1 100%)`
-          }}
-        />
-
-        {/* Geometric pattern overlay for modern look */}
-        <div
-          className="absolute inset-0 opacity-20"
-          style={{
-            backgroundImage: `
-              linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%),
-              linear-gradient(-45deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%)
-            `,
-            backgroundSize: '60px 60px'
-          }}
-        />
-
-        {/* Gradient overlay for depth and color */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/30 via-slate-800/20 to-indigo-900/30" />
-
-        {/* Bottom fade to ensure readability */}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-50/90 via-slate-50/40 to-slate-50/5" />
-
-        {/* Top vignette */}
-        <div className="absolute inset-0 bg-gradient-to-b from-slate-900/10 via-transparent to-transparent" />
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 flex flex-col min-h-screen">
-        {/* Header */}
-        <div className="text-center pt-16 pb-8 px-4 animate-fade-in">
-          <div className="flex items-center justify-center gap-3 mb-6">
-            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl shadow-lg transition-all duration-500 hover:scale-110 hover:rotate-3">
-              <Building2 className="h-12 w-12 text-slate-800 drop-shadow-lg" />
+    <div className="h-screen flex flex-col bg-white">
+      {/* Header - Clean and minimal like ChatGPT */}
+      <div className="flex-shrink-0 border-b border-gray-200 bg-white">
+        <div className="max-w-4xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-center gap-3">
+            <div className="p-2 bg-blue-500 rounded-lg">
+              <Building2 className="h-6 w-6 text-white" />
             </div>
-            <h1 className="text-6xl font-bold text-balance text-slate-800 drop-shadow-lg">
-              HW Deal<span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 animate-pulse">Sourcing</span>
+            <h1 className="text-xl font-semibold text-gray-800">
+              HW Deal<span className="text-blue-600">Sourcing</span>
             </h1>
           </div>
-          <p className="text-xl text-slate-700 max-w-2xl mx-auto text-balance font-medium drop-shadow-sm">
-            Your intelligent deal sourcing agent. Find the perfect investment opportunities with AI-powered search.
-          </p>
         </div>
+      </div>
 
-        {/* Chat Container */}
-        <div className="flex-1 max-w-4xl mx-auto w-full px-4 pb-8">
-          <Card className="h-[500px] flex flex-col bg-white/85 backdrop-blur-md border-white/20 shadow-2xl">
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      {/* Chat Container - Full canvas like ChatGPT */}
+      <div className="flex-1 overflow-hidden">
+        <div className="h-full max-w-4xl mx-auto flex flex-col">
+          {/* Messages Area - Scrollable */}
+          <div className="flex-1 overflow-y-auto px-4 py-6">
+            <div className="space-y-6">
               {messages.map((message) => (
                 <div key={message.id} className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-[80%] rounded-lg px-4 py-3 shadow-md ${
-                      message.isUser ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white" : "bg-white/90 backdrop-blur-sm text-slate-700 border border-slate-200/50"
-                    }`}
-                  >
-                    <p className="text-sm leading-relaxed">{message.content}</p>
-                    <p className="text-xs opacity-70 mt-1">
-                      {message.timestamp.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
+                  <div className={`flex gap-3 max-w-3xl ${message.isUser ? "flex-row-reverse" : ""}`}>
+                    {/* Avatar */}
+                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                      message.isUser ? "bg-blue-500" : "bg-gray-200"
+                    }`}>
+                      {message.isUser ? (
+                        <span className="text-white text-xs font-medium">You</span>
+                      ) : (
+                        <Building2 className="h-4 w-4 text-gray-600" />
+                      )}
+                    </div>
+
+                    {/* Message Content */}
+                    <div className="flex-1">
+                      <div className="prose prose-gray max-w-none">
+                        <div className="text-gray-800 leading-relaxed whitespace-pre-wrap">
+                          {message.content}
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-500 mt-2">
+                        {message.timestamp.toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ))}
 
               {isLoading && (
                 <div className="flex justify-start">
-                  <div className="bg-white/90 backdrop-blur-sm text-slate-700 rounded-lg px-4 py-3 shadow-md border border-slate-200/50">
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1">
-                        <div className="w-2 h-2 bg-current rounded-full animate-bounce" />
-                        <div
-                          className="w-2 h-2 bg-current rounded-full animate-bounce"
-                          style={{ animationDelay: "0.1s" }}
-                        />
-                        <div
-                          className="w-2 h-2 bg-current rounded-full animate-bounce"
-                          style={{ animationDelay: "0.2s" }}
-                        />
+                  <div className="flex gap-3 max-w-3xl">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
+                      <Building2 className="h-4 w-4 text-gray-600" />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 bg-current rounded-full animate-bounce" />
+                          <div
+                            className="w-2 h-2 bg-current rounded-full animate-bounce"
+                            style={{ animationDelay: "0.1s" }}
+                          />
+                          <div
+                            className="w-2 h-2 bg-current rounded-full animate-bounce"
+                            style={{ animationDelay: "0.2s" }}
+                          />
+                        </div>
+                        <span className="text-sm">Searching opportunities...</span>
                       </div>
-                      <span className="text-sm">Searching opportunities...</span>
                     </div>
                   </div>
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Input Area */}
-            <div className="border-t border-slate-200/30 bg-white/50 backdrop-blur-sm p-4">
-              <div className="flex gap-2">
-                <Input
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Ask me about real estate, M&A deals, investment opportunities..."
-                  className="flex-1 bg-white/70 border-slate-300/50 focus:bg-white transition-colors"
-                  disabled={isLoading}
-                />
+          {/* Input Area - Fixed at bottom like ChatGPT */}
+          <div className="flex-shrink-0 border-t border-gray-200 bg-white">
+            <div className="px-4 py-4">
+              <div className="flex gap-3 items-end">
+                <div className="flex-1">
+                  <Input
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder="Ask me about real estate, M&A deals, investment opportunities..."
+                    className="min-h-[44px] resize-none border-gray-300 focus:border-blue-500 focus:ring-blue-500 rounded-xl px-4"
+                    disabled={isLoading}
+                  />
+                </div>
                 <Button
                   onClick={handleSendMessage}
                   disabled={!inputValue.trim() || isLoading}
-                  className="px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
+                  className="h-11 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
                 >
                   <Send className="h-4 w-4" />
                 </Button>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
+      </div>
 
-        {/* Quick Actions */}
-        <div className="max-w-4xl mx-auto w-full px-4 pb-8">
+      {/* Quick Actions - Fixed at bottom */}
+      <div className="flex-shrink-0 bg-gray-50 border-t border-gray-200">
+        <div className="max-w-4xl mx-auto px-4 py-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Button
               variant="outline"
-              className="h-auto p-4 bg-white/80 backdrop-blur-md border-white/30 hover:bg-white/95 shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+              className="h-auto p-4 bg-white border-gray-200 hover:bg-gray-50 rounded-xl transition-all duration-200"
               onClick={() => setInputValue("Find multifamily properties under $5M in Denver")}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg">
+                <div className="p-2 bg-blue-50 rounded-lg">
                   <Building2 className="h-5 w-5 text-blue-600" />
                 </div>
                 <div className="text-left">
-                  <p className="font-semibold text-slate-800">Real Estate Deals</p>
-                  <p className="text-sm text-slate-600">Multifamily Properties</p>
+                  <p className="font-medium text-gray-900">Real Estate Deals</p>
+                  <p className="text-sm text-gray-500">Multifamily Properties</p>
                 </div>
               </div>
             </Button>
 
             <Button
               variant="outline"
-              className="h-auto p-4 bg-white/80 backdrop-blur-md border-white/30 hover:bg-white/95 shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+              className="h-auto p-4 bg-white border-gray-200 hover:bg-gray-50 rounded-xl transition-all duration-200"
               onClick={() => setInputValue("Search for M&A opportunities in the technology sector")}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg">
+                <div className="p-2 bg-green-50 rounded-lg">
                   <DollarSign className="h-5 w-5 text-green-600" />
                 </div>
                 <div className="text-left">
-                  <p className="font-semibold text-slate-800">M&A Opportunities</p>
-                  <p className="text-sm text-slate-600">Tech Sector</p>
+                  <p className="font-medium text-gray-900">M&A Opportunities</p>
+                  <p className="text-sm text-gray-500">Tech Sector</p>
                 </div>
               </div>
             </Button>
 
             <Button
               variant="outline"
-              className="h-auto p-4 bg-white/80 backdrop-blur-md border-white/30 hover:bg-white/95 shadow-lg transition-all duration-300 hover:shadow-xl hover:scale-105"
+              className="h-auto p-4 bg-white border-gray-200 hover:bg-gray-50 rounded-xl transition-all duration-200"
               onClick={() => setInputValue("Generate a comprehensive investment report on all opportunities")}
             >
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-gradient-to-r from-purple-100 to-violet-100 rounded-lg">
+                <div className="p-2 bg-purple-50 rounded-lg">
                   <MapPin className="h-5 w-5 text-purple-600" />
                 </div>
                 <div className="text-left">
-                  <p className="font-semibold text-slate-800">Investment Report</p>
-                  <p className="text-sm text-slate-600">Full Analysis</p>
+                  <p className="font-medium text-gray-900">Investment Report</p>
+                  <p className="text-sm text-gray-500">Full Analysis</p>
                 </div>
               </div>
             </Button>

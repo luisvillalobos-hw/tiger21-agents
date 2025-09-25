@@ -119,30 +119,111 @@ app.post('/api/agent', async (req, res) => {
     const responseText = await queryResponse.text();
     console.log('Raw streaming response:', responseText);
 
-    // Parse the streaming response (Server-Sent Events format)
+    // Parse the streaming response and extract clean text
     let finalResponse = 'Processing your request...';
 
-    // Simple parsing for SSE format
+    // Helper function to extract clean text from complex response objects
+    const extractCleanText = (data) => {
+      // If it's a string, return as is
+      if (typeof data === 'string') {
+        return data;
+      }
+
+      // If it's an object, look for common text fields
+      if (typeof data === 'object' && data !== null) {
+        // Look for text field
+        if (data.text && typeof data.text === 'string') {
+          return data.text;
+        }
+
+        // Look for content field
+        if (data.content && typeof data.content === 'string') {
+          return data.content;
+        }
+
+        // Look for message field
+        if (data.message && typeof data.message === 'string') {
+          return data.message;
+        }
+
+        // Look for output field
+        if (data.output && typeof data.output === 'string') {
+          return data.output;
+        }
+
+        // If it has parts array (common in streaming responses)
+        if (data.parts && Array.isArray(data.parts)) {
+          const textParts = data.parts
+            .map(part => {
+              if (typeof part === 'string') return part;
+              if (part.text) return part.text;
+              if (part.content) return part.content;
+              return '';
+            })
+            .filter(text => text.trim() !== '');
+          if (textParts.length > 0) {
+            return textParts.join('\n');
+          }
+        }
+
+        // Convert object to string as fallback
+        return JSON.stringify(data, null, 2);
+      }
+
+      return String(data);
+    };
+
+    // Parse the streaming response (Server-Sent Events format)
     if (responseText.includes('data: ')) {
       const lines = responseText.split('\n');
       const dataLines = lines.filter(line => line.startsWith('data: '));
-      if (dataLines.length > 0) {
-        // Get the last data line as the final response
-        const lastData = dataLines[dataLines.length - 1].replace('data: ', '');
-        try {
-          const parsed = JSON.parse(lastData);
-          finalResponse = parsed.output || parsed.result || parsed.content || lastData;
-        } catch {
-          finalResponse = lastData;
+
+      let allResponses = [];
+
+      // Process all data lines to collect streaming responses
+      dataLines.forEach(line => {
+        const dataContent = line.replace('data: ', '').trim();
+        if (dataContent && dataContent !== '[DONE]') {
+          try {
+            const parsed = JSON.parse(dataContent);
+            const cleanText = extractCleanText(parsed);
+            if (cleanText && cleanText !== 'Processing your request...') {
+              allResponses.push(cleanText);
+            }
+          } catch {
+            // If it's not JSON, treat as plain text
+            if (dataContent.length > 0) {
+              allResponses.push(dataContent);
+            }
+          }
         }
+      });
+
+      // Join all responses or use the last one
+      if (allResponses.length > 0) {
+        finalResponse = allResponses.join('\n').trim();
       }
     } else {
       // If not SSE format, try to parse as JSON
       try {
         const parsed = JSON.parse(responseText);
-        finalResponse = parsed.output || parsed.result || parsed.content || responseText;
+        finalResponse = extractCleanText(parsed);
       } catch {
-        finalResponse = responseText;
+        // Plain text response
+        finalResponse = responseText.trim();
+      }
+    }
+
+    // Final cleanup - remove any JSON artifacts that might have slipped through
+    if (finalResponse.includes('"content":') || finalResponse.includes('"parts":')) {
+      try {
+        const cleanupPattern = /.*"text":\s*"([^"]+)".*/;
+        const match = finalResponse.match(cleanupPattern);
+        if (match && match[1]) {
+          finalResponse = match[1];
+        }
+      } catch {
+        // Keep original if cleanup fails
       }
     }
 
