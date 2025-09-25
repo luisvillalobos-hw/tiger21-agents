@@ -47,67 +47,31 @@ app.post('/api/agent', async (req, res) => {
 
     console.log(`Making request to: ${agentEndpoint}`);
 
-    // Try different payload formats until we find the right one
-    const payloads = [
-      // Format 1: Direct input as string
-      { input: message },
-      // Format 2: Structured input
-      {
-        input: {
-          text: message
-        }
-      },
-      // Format 3: Query format
-      {
-        query: message
-      },
-      // Format 4: Instance format (common in Vertex AI)
-      {
-        instances: [
-          {
-            input: message
-          }
-        ]
+    // Use the correct Agent Engine API format
+    const payload = {
+      "class_method": "query",
+      "input": {
+        "message": message
       }
-    ];
+    };
 
-    let agentResponse = null;
-    let lastError = null;
+    console.log('Using correct payload format:', JSON.stringify(payload));
 
-    // Try each payload format
-    for (let i = 0; i < payloads.length; i++) {
-      const payload = payloads[i];
-      console.log(`Trying payload format ${i + 1}:`, JSON.stringify(payload));
+    const response = await fetch(agentEndpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
 
-      try {
-        const response = await fetch(agentEndpoint, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken.token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
+    const agentResponse = await response.json();
+    console.log('Agent Engine response:', agentResponse);
 
-        const responseData = await response.json();
-        console.log(`Response for format ${i + 1}:`, responseData);
-
-        if (response.ok) {
-          agentResponse = responseData;
-          console.log(`✅ Success with payload format ${i + 1}`);
-          break;
-        } else {
-          console.log(`❌ Format ${i + 1} failed:`, responseData);
-          lastError = responseData;
-        }
-      } catch (fetchError) {
-        console.log(`❌ Format ${i + 1} threw error:`, fetchError.message);
-        lastError = fetchError;
-      }
-    }
-
-    if (!agentResponse) {
-      throw new Error(`All payload formats failed. Last error: ${JSON.stringify(lastError)}`);
+    if (!response.ok) {
+      console.error('Agent Engine error:', agentResponse);
+      throw new Error(agentResponse.error?.message || `Agent Engine request failed: ${response.status}`);
     }
 
     // Return the response
