@@ -11,7 +11,7 @@ echo "📋 Using Agent Engine for backend processing"
 # Configuration
 PROJECT_ID="tiger21-demo"
 LOCATION="us-central1"
-AGENT_ENGINE_ID="7562269452029394944"
+# AGENT_ENGINE_ID is dynamically loaded from backend config
 
 echo "🔧 Configuration:"
 echo "  - Project: $PROJECT_ID"

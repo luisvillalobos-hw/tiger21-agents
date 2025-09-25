@@ -27,6 +27,9 @@ app.use(express.static(path.join(__dirname, 'dist'), {
   }
 }));
 
+// Import centralized configuration
+const { AGENT_CONFIG } = require('./config/agent.cjs');
+
 // API endpoint for Agent Engine proxy
 app.post('/api/agent', async (req, res) => {
   try {
@@ -36,10 +39,10 @@ app.post('/api/agent', async (req, res) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    // Get configuration from environment or request
-    const PROJECT_ID = config?.projectId || process.env.GOOGLE_CLOUD_PROJECT || 'tiger21-demo';
-    const LOCATION = config?.location || process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
-    const AGENT_ENGINE_ID = config?.agentEngineId || process.env.AGENT_ENGINE_ID || '7562269452029394944';
+    // Get configuration from centralized config or request override
+    const PROJECT_ID = config?.projectId || AGENT_CONFIG.PROJECT_ID;
+    const LOCATION = config?.location || AGENT_CONFIG.LOCATION;
+    const AGENT_ENGINE_ID = config?.agentEngineId || AGENT_CONFIG.AGENT_ENGINE_ID;
 
     // Import Google Auth Library
     const { GoogleAuth } = require('google-auth-library');

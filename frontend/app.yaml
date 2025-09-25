@@ -36,4 +36,4 @@ env_variables:
   NODE_ENV: 'production'
   GOOGLE_CLOUD_PROJECT: 'tiger21-demo'
   GOOGLE_CLOUD_LOCATION: 'us-central1'
-  AGENT_ENGINE_ID: '7562269452029394944'
+  # AGENT_ENGINE_ID is dynamically loaded from centralized config
