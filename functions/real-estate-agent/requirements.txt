@@ -1,0 +1,6 @@
+functions-framework==3.*
+google-cloud-logging
+google-adk>=1.0.0
+pydantic>=2.10.6
+aiohttp>=3.10.0
+requests>=2.32.0

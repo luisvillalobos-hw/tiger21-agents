@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Updated to professional slate/gray theme for real estate */
+  --background: 240 10% 98%;
+  --foreground: 240 10% 15%;
+  --card: 240 10% 99%;
+  --card-foreground: 240 10% 15%;
+  --popover: 240 10% 99%;
+  --popover-foreground: 240 10% 15%;
+  --primary: 240 8% 45%;
+  --primary-foreground: 240 10% 98%;
+  --secondary: 240 10% 94%;
+  --secondary-foreground: 240 10% 25%;
+  --muted: 240 8% 96%;
+  --muted-foreground: 240 10% 50%;
+  --accent: 240 6% 55%;
+  --accent-foreground: 240 10% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 10% 90%;
+  --input: 240 8% 97%;
+  --ring: 240 8% 45%;
+  --radius: 0.75rem;
+}
+
+.dark {
+  /* Updated dark mode to complement slate theme */
+  --background: 240 10% 8%;
+  --foreground: 240 5% 95%;
+  --card: 240 10% 10%;
+  --card-foreground: 240 5% 95%;
+  --popover: 240 10% 10%;
+  --popover-foreground: 240 5% 95%;
+  --primary: 240 8% 60%;
+  --primary-foreground: 240 10% 8%;
+  --secondary: 240 10% 18%;
+  --secondary-foreground: 240 5% 95%;
+  --muted: 240 10% 14%;
+  --muted-foreground: 240 10% 70%;
+  --accent: 240 6% 50%;
+  --accent-foreground: 240 5% 95%;
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 240 10% 20%;
+  --input: 240 10% 16%;
+  --ring: 240 8% 60%;
+}
+
+@layer base {
+  * {
+    @apply border-slate-200;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900;
+    margin: 0;
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 1s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
