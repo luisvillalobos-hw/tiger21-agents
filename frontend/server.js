@@ -41,60 +41,84 @@ app.post('/api/agent', async (req, res) => {
 
     console.log(`Calling Agent Engine: ${AGENT_ENGINE_ID}`);
 
-    // Use the Vertex AI SDK to properly communicate with Agent Engine
-    const vertexai = require('@google-cloud/vertexai');
-    const { agent_engines } = vertexai;
-
-    // Initialize Vertex AI
-    vertexai.init({
-      project: PROJECT_ID,
-      location: LOCATION,
-    });
-
-    // Get the deployed agent engine using the resource name from our config
+    // Use REST API with correct format for Reasoning Engine
     const resourceName = `projects/766839068481/locations/${LOCATION}/reasoningEngines/${AGENT_ENGINE_ID}`;
+    const agentEndpoint = `https://${LOCATION}-aiplatform.googleapis.com/v1/${resourceName}:query`;
 
-    // Get the agent engine
-    const remoteAgent = agent_engines.get(resourceName);
+    console.log(`Making request to: ${agentEndpoint}`);
 
-    // Create a simple session (non-async version)
-    let sessionId;
-    try {
-      const session = await remoteAgent.create_session({ user_id: "web_user" });
-      sessionId = session.id || session.get("id");
-      console.log(`Created session: ${sessionId}`);
-    } catch (sessionError) {
-      console.error('Session creation error:', sessionError);
-      // Try without session
-      sessionId = null;
+    // Try different payload formats until we find the right one
+    const payloads = [
+      // Format 1: Direct input as string
+      { input: message },
+      // Format 2: Structured input
+      {
+        input: {
+          text: message
+        }
+      },
+      // Format 3: Query format
+      {
+        query: message
+      },
+      // Format 4: Instance format (common in Vertex AI)
+      {
+        instances: [
+          {
+            input: message
+          }
+        ]
+      }
+    ];
+
+    let agentResponse = null;
+    let lastError = null;
+
+    // Try each payload format
+    for (let i = 0; i < payloads.length; i++) {
+      const payload = payloads[i];
+      console.log(`Trying payload format ${i + 1}:`, JSON.stringify(payload));
+
+      try {
+        const response = await fetch(agentEndpoint, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken.token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const responseData = await response.json();
+        console.log(`Response for format ${i + 1}:`, responseData);
+
+        if (response.ok) {
+          agentResponse = responseData;
+          console.log(`✅ Success with payload format ${i + 1}`);
+          break;
+        } else {
+          console.log(`❌ Format ${i + 1} failed:`, responseData);
+          lastError = responseData;
+        }
+      } catch (fetchError) {
+        console.log(`❌ Format ${i + 1} threw error:`, fetchError.message);
+        lastError = fetchError;
+      }
     }
 
-    // Query the agent
-    let agentResponse;
-    if (sessionId) {
-      agentResponse = await remoteAgent.query({
-        user_id: "web_user",
-        session_id: sessionId,
-        message: message
-      });
-    } else {
-      // Try direct query without session
-      agentResponse = await remoteAgent.query({
-        input: message
-      });
+    if (!agentResponse) {
+      throw new Error(`All payload formats failed. Last error: ${JSON.stringify(lastError)}`);
     }
-
-    console.log('Agent response received:', agentResponse);
 
     // Return the response
     res.json({
-      output: agentResponse.output || agentResponse.result || agentResponse.response || agentResponse || 'Response received from Agent Engine',
+      output: agentResponse.output || agentResponse.result || agentResponse.response || agentResponse.predictions?.[0] || 'Response received from Agent Engine',
       metadata: {
         projectId: PROJECT_ID,
         location: LOCATION,
         agentEngineId: AGENT_ENGINE_ID,
-        sessionId: sessionId
-      }
+      },
+      rawResponse: agentResponse
     });
 
   } catch (error) {
