@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Cloud Build copied config
+backend-config.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

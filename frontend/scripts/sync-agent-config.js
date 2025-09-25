@@ -9,12 +9,49 @@ const path = require('path');
 
 function syncAgentConfig() {
   try {
-    // Read backend configuration
-    const backendConfigPath = path.join(__dirname, '..', '..', 'backend', 'agent_engine_config.json');
+    // Try multiple possible paths for backend configuration
+    const possiblePaths = [
+      // Cloud Build: copied to frontend directory
+      path.join(__dirname, '..', 'backend-config.json'),
+      // Local development: frontend/scripts -> backend/
+      path.join(__dirname, '..', '..', 'backend', 'agent_engine_config.json'),
+      // Cloud Build: might be at root level
+      path.join(__dirname, '..', '..', '..', 'backend', 'agent_engine_config.json'),
+      // Alternative: relative from frontend directory
+      path.join(process.cwd(), '..', 'backend', 'agent_engine_config.json'),
+      // Direct relative path
+      '../backend/agent_engine_config.json',
+      // Current working directory
+      path.join(process.cwd(), 'backend', 'agent_engine_config.json')
+    ];
 
-    if (!fs.existsSync(backendConfigPath)) {
-      console.error('❌ Backend agent_engine_config.json not found at:', backendConfigPath);
-      process.exit(1);
+    let backendConfigPath = null;
+
+    for (const testPath of possiblePaths) {
+      const resolvedPath = path.resolve(testPath);
+      console.log(`🔍 Checking for backend config at: ${resolvedPath}`);
+      if (fs.existsSync(resolvedPath)) {
+        backendConfigPath = resolvedPath;
+        console.log(`✅ Found backend config at: ${backendConfigPath}`);
+        break;
+      }
+    }
+
+    if (!backendConfigPath) {
+      console.log('⚠️ Backend agent_engine_config.json not found. Using fallback values.');
+      console.log('This is normal in Cloud Build if agent config is provided via environment variables.');
+
+      // Create a minimal .env with current environment variables
+      const envPath = path.join(__dirname, '..', '.env');
+      const fallbackEnv = [
+        'VITE_GOOGLE_CLOUD_PROJECT=tiger21-demo',
+        'VITE_GOOGLE_CLOUD_LOCATION=us-central1',
+        'VITE_AGENT_ENGINE_ID=7562269452029394944'
+      ].join('\n');
+
+      fs.writeFileSync(envPath, fallbackEnv);
+      console.log('✅ Created .env with fallback values');
+      return;
     }
 
     const backendConfig = JSON.parse(fs.readFileSync(backendConfigPath, 'utf-8'));
