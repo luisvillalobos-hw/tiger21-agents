@@ -1,44 +1,52 @@
 #!/bin/bash
 
-# Frontend deployment script for App Engine
+# Frontend deployment script for App Engine with Agent Engine integration
 
 # Exit on error
 set -e
 
 echo "🚀 Starting frontend deployment to App Engine..."
+echo "📋 Using Agent Engine for backend processing"
 
-# Get the Cloud Run backend URL
-BACKEND_URL=$(gcloud run services describe deal-sourcing-backend --region=us-central1 --format='value(status.url)')
+# Configuration
+PROJECT_ID="tiger21-demo"
+LOCATION="us-central1"
+AGENT_ENGINE_ID="2163579398719012864"
 
-if [ -z "$BACKEND_URL" ]; then
-    echo "❌ Could not get Cloud Run backend URL. Make sure the backend is deployed first."
+echo "🔧 Configuration:"
+echo "  - Project: $PROJECT_ID"
+echo "  - Location: $LOCATION"
+echo "  - Agent Engine ID: $AGENT_ENGINE_ID"
+
+# Build the frontend
+echo "📦 Building frontend for production..."
+npm run build
+
+# Check if build succeeded
+if [ $? -ne 0 ]; then
+    echo "❌ Build failed!"
     exit 1
 fi
 
-echo "✅ Backend URL: $BACKEND_URL"
-
-# Build the frontend with the production API URL
-echo "📦 Building frontend for production..."
-VITE_API_URL=$BACKEND_URL npm run build
+echo "✅ Build successful!"
 
 # Deploy to App Engine
 echo "☁️ Deploying to App Engine..."
-gcloud app deploy app.yaml --quiet
+gcloud app deploy app.yaml --project=$PROJECT_ID --quiet
 
 # Get the App Engine URL
-APP_URL=$(gcloud app browse --no-launch-browser 2>&1 | grep -o 'https://[^ ]*')
+APP_URL="https://${PROJECT_ID}.appspot.com"
 
 echo "✅ Frontend deployed successfully!"
-echo "🌐 Frontend URL: $APP_URL"
-echo "🔗 Backend URL: $BACKEND_URL"
-
-# Update the backend CORS settings
-echo "🔄 Updating backend CORS settings..."
-gcloud run services update deal-sourcing-backend \
-    --region=us-central1 \
-    --update-env-vars="FRONTEND_URL=$APP_URL" \
-    --quiet
-
+echo ""
 echo "🎉 Deployment complete!"
-echo "Frontend: $APP_URL"
-echo "Backend: $BACKEND_URL"
+echo "🌐 Frontend URL: $APP_URL"
+echo "🤖 Agent Engine ID: $AGENT_ENGINE_ID"
+echo ""
+echo "📊 To view logs:"
+echo "  gcloud app logs tail --project=$PROJECT_ID"
+echo ""
+echo "🧪 To test the Agent Engine integration:"
+echo "  1. Visit $APP_URL"
+echo "  2. Try asking about investment opportunities"
+echo "  3. The Agent Engine will process your requests"
