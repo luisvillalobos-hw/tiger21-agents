@@ -14,7 +14,7 @@
 
 """Deal Sourcing agent for investment opportunity discovery"""
 
-from agent import deal_sourcing_coordinator
-from agent import root_agent
+from deal_sourcing_agent import deal_sourcing_coordinator
+from deal_sourcing_agent import root_agent
 
 __all__ = ["deal_sourcing_coordinator", "root_agent"]
