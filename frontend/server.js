@@ -47,32 +47,106 @@ app.post('/api/agent', async (req, res) => {
 
     console.log(`Making request to: ${agentEndpoint}`);
 
-    // Use the correct Agent Engine API format
-    const payload = {
-      "class_method": "query",
+    // Step 1: Create a session first
+    console.log('Step 1: Creating session...');
+    const createSessionPayload = {
+      "class_method": "async_create_session",
       "input": {
-        "message": message
+        "user_id": "web_user"
       }
     };
 
-    console.log('Using correct payload format:', JSON.stringify(payload));
+    console.log('Creating session with payload:', JSON.stringify(createSessionPayload));
 
-    const response = await fetch(agentEndpoint, {
+    const sessionResponse = await fetch(agentEndpoint, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${accessToken.token}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(createSessionPayload),
     });
 
-    const agentResponse = await response.json();
-    console.log('Agent Engine response:', agentResponse);
+    const sessionData = await sessionResponse.json();
+    console.log('Session creation response:', sessionData);
 
-    if (!response.ok) {
-      console.error('Agent Engine error:', agentResponse);
-      throw new Error(agentResponse.error?.message || `Agent Engine request failed: ${response.status}`);
+    if (!sessionResponse.ok) {
+      console.error('Session creation error:', sessionData);
+      throw new Error(sessionData.error?.message || `Session creation failed: ${sessionResponse.status}`);
     }
+
+    // Extract session ID from response
+    const sessionId = sessionData.output?.id || sessionData.output || sessionData.result?.id;
+    console.log('Created session ID:', sessionId);
+
+    if (!sessionId) {
+      throw new Error('Failed to get session ID from response');
+    }
+
+    // Step 2: Query using streaming method (since our Agent Engine has async methods)
+    console.log('Step 2: Querying with session...');
+    const streamEndpoint = `https://${LOCATION}-aiplatform.googleapis.com/v1/${resourceName}:streamQuery?alt=sse`;
+
+    const queryPayload = {
+      "class_method": "async_stream_query",
+      "input": {
+        "user_id": "web_user",
+        "session_id": sessionId,
+        "message": message
+      }
+    };
+
+    console.log('Querying with payload:', JSON.stringify(queryPayload));
+
+    const queryResponse = await fetch(streamEndpoint, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken.token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(queryPayload),
+    });
+
+    console.log('Query response status:', queryResponse.status);
+
+    if (!queryResponse.ok) {
+      const errorData = await queryResponse.json();
+      console.error('Query error:', errorData);
+      throw new Error(errorData.error?.message || `Query failed: ${queryResponse.status}`);
+    }
+
+    // Handle the streaming response
+    const responseText = await queryResponse.text();
+    console.log('Raw streaming response:', responseText);
+
+    // Parse the streaming response (Server-Sent Events format)
+    let finalResponse = 'Processing your request...';
+
+    // Simple parsing for SSE format
+    if (responseText.includes('data: ')) {
+      const lines = responseText.split('\n');
+      const dataLines = lines.filter(line => line.startsWith('data: '));
+      if (dataLines.length > 0) {
+        // Get the last data line as the final response
+        const lastData = dataLines[dataLines.length - 1].replace('data: ', '');
+        try {
+          const parsed = JSON.parse(lastData);
+          finalResponse = parsed.output || parsed.result || parsed.content || lastData;
+        } catch {
+          finalResponse = lastData;
+        }
+      }
+    } else {
+      // If not SSE format, try to parse as JSON
+      try {
+        const parsed = JSON.parse(responseText);
+        finalResponse = parsed.output || parsed.result || parsed.content || responseText;
+      } catch {
+        finalResponse = responseText;
+      }
+    }
+
+    const agentResponse = { output: finalResponse };
 
     // Return the response
     res.json({
