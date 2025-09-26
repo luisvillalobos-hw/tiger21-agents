@@ -25,6 +25,10 @@ RUN apt-get update && apt-get install -y python3 python3-pip python3-venv && rm 
 COPY --from=backend-builder /backend /backend
 COPY --from=backend-builder /backend/.venv /backend/.venv
 
+# Install Python dependencies system-wide for production use
+WORKDIR /backend
+RUN python3 -m pip install crewai langchain-community langchain-google-genai python-dotenv requests beautifulsoup4
+
 # Set working directory for frontend
 WORKDIR /app
 

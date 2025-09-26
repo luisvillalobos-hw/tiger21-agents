@@ -55,7 +55,8 @@ app.post('/api/analysis', async (req, res) => {
 
     // In production (Cloud Run), use the virtual environment directly
     const isProduction = process.env.NODE_ENV === 'production';
-    const pythonCmd = isProduction ? '/backend/.venv/bin/python' : 'uv';
+    // Use system python3 in production since virtual environment has issues
+    const pythonCmd = isProduction ? 'python3' : 'uv';
     const pythonArgs = isProduction ? ['main.py'] : ['run', 'python', 'main.py'];
 
     console.log(`Starting analysis at: ${analysisPath} with command: ${pythonCmd} ${pythonArgs.join(' ')}`);
@@ -523,7 +524,7 @@ app.get('/api/test-python', async (req, res) => {
   const { spawn } = require('child_process');
   const analysisPath = process.env.ANALYSIS_PATH || '/Volumes/ExternalSSD2/hw/crewai-tiger21';
   const isProduction = process.env.NODE_ENV === 'production';
-  const pythonCmd = isProduction ? '/backend/.venv/bin/python' : 'python3';
+  const pythonCmd = isProduction ? 'python3' : 'python3';
 
   console.log(`Testing Python at: ${analysisPath} with command: ${pythonCmd}`);
 
