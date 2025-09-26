@@ -1,5 +1,5 @@
 steps:
-  # Build the Docker image for frontend
+  # Build the Docker image
   - name: 'gcr.io/cloud-builders/docker'
     args: [
       'build',
@@ -7,16 +7,14 @@ steps:
       '-t', 'gcr.io/$PROJECT_ID/tiger21-frontend:latest',
       '.'
     ]
-    id: 'Build Docker Image'
+    dir: 'frontend'
 
   # Push the Docker image to Container Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/tiger21-frontend:$COMMIT_SHA']
-    id: 'Push Image with SHA'
 
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/tiger21-frontend:latest']
-    id: 'Push Latest Image'
 
   # Deploy to Cloud Run
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -27,13 +25,11 @@ steps:
       '--platform', 'managed',
       '--allow-unauthenticated',
       '--port', '8080',
-      '--memory', '2Gi',
-      '--cpu', '2',
+      '--memory', '1Gi',
+      '--cpu', '1',
       '--max-instances', '10',
-      '--set-env-vars', 'NODE_ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=us-central1',
-      '--service-account', '$PROJECT_NUMBER-compute@developer.gserviceaccount.com'
+      '--set-env-vars', 'NODE_ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_LOCATION=us-central1'
     ]
-    id: 'Deploy to Cloud Run'
 
 # Store images in Container Registry
 images:
