@@ -4,14 +4,12 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Backend Python files (we only want frontend)
-backend/
-src/
-*.py
-pyproject.toml
-uv.lock
+# Backend Python files we DON'T need (keep the CrewAI system)
+backend/venv/
+backend/agents/
+backend/__pycache__/
 __pycache__/
-.python-version
+*.pyc
 
 # Build outputs (but we need to build during Docker build)
 frontend/.vite

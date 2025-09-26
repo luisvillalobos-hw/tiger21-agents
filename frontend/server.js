@@ -50,10 +50,17 @@ app.post('/api/analysis', async (req, res) => {
     // Import child_process to run the analysis system
     const { spawn } = require('child_process');
 
-    // Path to the analysis system
-    const analysisPath = '/Volumes/ExternalSSD2/hw/crewai-tiger21';
+    // Path to the analysis system - use environment variable or fallback
+    const analysisPath = process.env.ANALYSIS_PATH || '/Volumes/ExternalSSD2/hw/crewai-tiger21';
 
-    const analysisProcess = spawn('uv', ['run', 'python', 'main.py'], {
+    // In production (Cloud Run), use the virtual environment directly
+    const isProduction = process.env.NODE_ENV === 'production';
+    const pythonCmd = isProduction ? '/backend/.venv/bin/python' : 'uv';
+    const pythonArgs = isProduction ? ['main.py'] : ['run', 'python', 'main.py'];
+
+    console.log(`Starting analysis at: ${analysisPath} with command: ${pythonCmd} ${pythonArgs.join(' ')}`);
+
+    const analysisProcess = spawn(pythonCmd, pythonArgs, {
       cwd: analysisPath,
       env: {
         ...process.env,
