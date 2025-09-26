@@ -573,6 +573,52 @@ app.get('/api/test-python', async (req, res) => {
   }
 });
 
+// Debug endpoint to check filesystem structure
+app.get('/api/debug-filesystem', (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+
+  try {
+    const backendDir = '/backend';
+    const backendExists = fs.existsSync(backendDir);
+
+    let backendContents = null;
+    let venvContents = null;
+    let venvBinContents = null;
+
+    if (backendExists) {
+      backendContents = fs.readdirSync(backendDir);
+
+      const venvDir = path.join(backendDir, '.venv');
+      if (fs.existsSync(venvDir)) {
+        venvContents = fs.readdirSync(venvDir);
+
+        const venvBinDir = path.join(venvDir, 'bin');
+        if (fs.existsSync(venvBinDir)) {
+          venvBinContents = fs.readdirSync(venvBinDir);
+        }
+      }
+    }
+
+    res.json({
+      backendExists,
+      backendContents,
+      venvContents,
+      venvBinContents,
+      cwd: process.cwd(),
+      env: {
+        NODE_ENV: process.env.NODE_ENV,
+        ANALYSIS_PATH: process.env.ANALYSIS_PATH
+      }
+    });
+  } catch (error) {
+    res.json({
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // Serve React app for all other routes
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
