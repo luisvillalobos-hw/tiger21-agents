@@ -128,17 +128,31 @@ app.post('/api/analysis', async (req, res) => {
     });
 
     analysisProcess.stderr.on('data', (data) => {
-      console.error('Analysis error:', data.toString());
+      const errorMsg = data.toString();
+      console.error('Analysis stderr:', errorMsg);
+      sendUpdate('thinking', `Error: ${errorMsg}`);
     });
 
     analysisProcess.on('close', (code) => {
+      console.log(`Analysis process exited with code: ${code}`);
+      console.log(`Full output length: ${fullOutput.length}`);
+
       if (code === 0) {
         // Clean and format the final output
         const cleanedOutput = cleanOutput(fullOutput);
+        console.log(`Cleaned output length: ${cleanedOutput.length}`);
         sendUpdate('complete', cleanedOutput);
       } else {
-        sendUpdate('error', 'Analysis failed. Please try again.');
+        const errorMessage = `Analysis failed with exit code: ${code}. Check logs for details.`;
+        console.error(errorMessage);
+        sendUpdate('error', errorMessage);
       }
+      res.end();
+    });
+
+    analysisProcess.on('error', (error) => {
+      console.error('Failed to start analysis process:', error);
+      sendUpdate('error', `Failed to start analysis: ${error.message}`);
       res.end();
     });
 
@@ -495,8 +509,68 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    service: 'CrewAI Investment Analysis'
+    service: 'CrewAI Investment Analysis',
+    environment: {
+      nodeEnv: process.env.NODE_ENV,
+      analysisPath: process.env.ANALYSIS_PATH || '/Volumes/ExternalSSD2/hw/crewai-tiger21',
+      isProduction: process.env.NODE_ENV === 'production'
+    }
   });
+});
+
+// Test endpoint to check Python environment
+app.get('/api/test-python', async (req, res) => {
+  const { spawn } = require('child_process');
+  const analysisPath = process.env.ANALYSIS_PATH || '/Volumes/ExternalSSD2/hw/crewai-tiger21';
+  const isProduction = process.env.NODE_ENV === 'production';
+  const pythonCmd = isProduction ? '/backend/.venv/bin/python' : 'python3';
+
+  console.log(`Testing Python at: ${analysisPath} with command: ${pythonCmd}`);
+
+  try {
+    const testProcess = spawn(pythonCmd, ['--version'], {
+      cwd: analysisPath,
+      env: process.env
+    });
+
+    let output = '';
+    let error = '';
+
+    testProcess.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    testProcess.stderr.on('data', (data) => {
+      error += data.toString();
+    });
+
+    testProcess.on('close', (code) => {
+      res.json({
+        success: code === 0,
+        exitCode: code,
+        pythonCmd,
+        analysisPath,
+        output: output || error,
+        environment: process.env.NODE_ENV
+      });
+    });
+
+    testProcess.on('error', (err) => {
+      res.json({
+        success: false,
+        error: err.message,
+        pythonCmd,
+        analysisPath
+      });
+    });
+  } catch (error) {
+    res.json({
+      success: false,
+      error: error.message,
+      pythonCmd,
+      analysisPath
+    });
+  }
 });
 
 // Serve React app for all other routes
