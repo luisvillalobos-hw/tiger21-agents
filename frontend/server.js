@@ -1,6 +1,6 @@
 /**
  * Express server for App Engine deployment
- * Serves the React app and provides API proxy for Agent Engine
+ * Serves the React app and provides API proxy for CrewAI analysis
  */
 
 const express = require('express');
@@ -27,253 +27,468 @@ app.use(express.static(path.join(__dirname, 'dist'), {
   }
 }));
 
-// Import centralized configuration
-const { AGENT_CONFIG } = require('./config/agent.cjs');
-
-// API endpoint for Agent Engine proxy
-app.post('/api/agent', async (req, res) => {
+// API endpoint for streaming analysis
+app.post('/api/analysis', async (req, res) => {
   try {
-    const { message, config } = req.body;
+    const { search_criteria, deal_interests, industry_focus } = req.body;
 
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
+    if (!search_criteria) {
+      return res.status(400).json({ error: 'search_criteria is required' });
     }
 
-    // Get configuration from centralized config or request override
-    const PROJECT_ID = config?.projectId || AGENT_CONFIG.PROJECT_ID;
-    const LOCATION = config?.location || AGENT_CONFIG.LOCATION;
-    const AGENT_ENGINE_ID = config?.agentEngineId || AGENT_CONFIG.AGENT_ENGINE_ID;
+    console.log('Starting analysis...');
 
-    // Import Google Auth Library
-    const { GoogleAuth } = require('google-auth-library');
-    const auth = new GoogleAuth({
-      scopes: ['https://www.googleapis.com/auth/cloud-platform'],
+    // Set up Server-Sent Events
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Cache-Control'
     });
 
-    // Get access token
-    const client = await auth.getClient();
-    const accessToken = await client.getAccessToken();
+    // Import child_process to run the analysis system
+    const { spawn } = require('child_process');
 
-    console.log(`Calling Agent Engine: ${AGENT_ENGINE_ID}`);
+    // Path to the analysis system
+    const analysisPath = '/Volumes/ExternalSSD2/hw/crewai-tiger21';
 
-    // Use REST API with correct format for Reasoning Engine
-    const resourceName = `projects/766839068481/locations/${LOCATION}/reasoningEngines/${AGENT_ENGINE_ID}`;
-    const agentEndpoint = `https://${LOCATION}-aiplatform.googleapis.com/v1/${resourceName}:query`;
-
-    console.log(`Making request to: ${agentEndpoint}`);
-
-    // Step 1: Create a session first
-    console.log('Step 1: Creating session...');
-    const createSessionPayload = {
-      "class_method": "async_create_session",
-      "input": {
-        "user_id": "web_user"
+    const analysisProcess = spawn('uv', ['run', 'python', 'main.py'], {
+      cwd: analysisPath,
+      env: {
+        ...process.env,
+        SEARCH_CRITERIA: search_criteria,
+        DEAL_INTERESTS: deal_interests || 'M&A deals in technology and real estate sectors',
+        INDUSTRY_FOCUS: industry_focus || 'technology and real estate'
       }
+    });
+
+    let fullOutput = '';
+    let currentThinking = '';
+    let currentStep = '';
+
+    // Function to send stream updates
+    const sendUpdate = (type, data) => {
+      res.write(`data: ${JSON.stringify({ type, data })}\n\n`);
     };
 
-    console.log('Creating session with payload:', JSON.stringify(createSessionPayload));
+    // Send initial status
+    sendUpdate('status', 'Starting analysis...');
 
-    const sessionResponse = await fetch(agentEndpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(createSessionPayload),
-    });
+    analysisProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      fullOutput += output;
 
-    const sessionData = await sessionResponse.json();
-    console.log('Session creation response:', sessionData);
+      // Parse and extract meaningful updates for the user
+      const lines = output.split('\n');
 
-    if (!sessionResponse.ok) {
-      console.error('Session creation error:', sessionData);
-      throw new Error(sessionData.error?.message || `Session creation failed: ${sessionResponse.status}`);
-    }
-
-    // Extract session ID from response
-    const sessionId = sessionData.output?.id || sessionData.output || sessionData.result?.id;
-    console.log('Created session ID:', sessionId);
-
-    if (!sessionId) {
-      throw new Error('Failed to get session ID from response');
-    }
-
-    // Step 2: Query using streaming method (since our Agent Engine has async methods)
-    console.log('Step 2: Querying with session...');
-    const streamEndpoint = `https://${LOCATION}-aiplatform.googleapis.com/v1/${resourceName}:streamQuery?alt=sse`;
-
-    const queryPayload = {
-      "class_method": "async_stream_query",
-      "input": {
-        "user_id": "web_user",
-        "session_id": sessionId,
-        "message": message
-      }
-    };
-
-    console.log('Querying with payload:', JSON.stringify(queryPayload));
-
-    const queryResponse = await fetch(streamEndpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(queryPayload),
-    });
-
-    console.log('Query response status:', queryResponse.status);
-
-    if (!queryResponse.ok) {
-      const errorData = await queryResponse.json();
-      console.error('Query error:', errorData);
-      throw new Error(errorData.error?.message || `Query failed: ${queryResponse.status}`);
-    }
-
-    // Handle the streaming response
-    const responseText = await queryResponse.text();
-    console.log('Raw streaming response:', responseText);
-
-    // Parse the streaming response and extract clean text
-    let finalResponse = 'Processing your request...';
-
-    // Helper function to extract clean text from complex response objects
-    const extractCleanText = (data) => {
-      // If it's a string, return as is
-      if (typeof data === 'string') {
-        return data;
-      }
-
-      // If it's an object, look for common text fields
-      if (typeof data === 'object' && data !== null) {
-        // Look for text field
-        if (data.text && typeof data.text === 'string') {
-          return data.text;
-        }
-
-        // Look for content field
-        if (data.content && typeof data.content === 'string') {
-          return data.content;
-        }
-
-        // Look for message field
-        if (data.message && typeof data.message === 'string') {
-          return data.message;
-        }
-
-        // Look for output field
-        if (data.output && typeof data.output === 'string') {
-          return data.output;
-        }
-
-        // If it has parts array (common in streaming responses)
-        if (data.parts && Array.isArray(data.parts)) {
-          const textParts = data.parts
-            .map(part => {
-              if (typeof part === 'string') return part;
-              if (part.text) return part.text;
-              if (part.content) return part.content;
-              return '';
-            })
-            .filter(text => text.trim() !== '');
-          if (textParts.length > 0) {
-            return textParts.join('\n');
+      for (const line of lines) {
+        if (line.trim()) {
+          // Extract agent activities
+          if (line.includes('Agent: ')) {
+            const agent = line.split('Agent: ')[1]?.split(' │')[0] || 'Agent';
+            currentStep = `${agent} is analyzing...`;
+            sendUpdate('thinking', currentStep);
           }
-        }
 
-        // Convert object to string as fallback
-        return JSON.stringify(data, null, 2);
-      }
+          // Extract search activities
+          if (line.includes('Using Tool: Search')) {
+            sendUpdate('thinking', 'Searching for opportunities...');
+          }
 
-      return String(data);
-    };
-
-    // Parse the streaming response (Server-Sent Events format)
-    if (responseText.includes('data: ')) {
-      const lines = responseText.split('\n');
-      const dataLines = lines.filter(line => line.startsWith('data: '));
-
-      let allResponses = [];
-
-      // Process all data lines to collect streaming responses
-      dataLines.forEach(line => {
-        const dataContent = line.replace('data: ', '').trim();
-        if (dataContent && dataContent !== '[DONE]') {
-          try {
-            const parsed = JSON.parse(dataContent);
-            const cleanText = extractCleanText(parsed);
-            if (cleanText && cleanText !== 'Processing your request...') {
-              allResponses.push(cleanText);
-            }
-          } catch {
-            // If it's not JSON, treat as plain text
-            if (dataContent.length > 0) {
-              allResponses.push(dataContent);
+          if (line.includes('search_query')) {
+            try {
+              const searchMatch = line.match(/"search_query":\s*"([^"]+)"/);
+              if (searchMatch) {
+                sendUpdate('thinking', `Searching: ${searchMatch[1]}`);
+              }
+            } catch (e) {
+              // Ignore parsing errors
             }
           }
+
+          // Extract task completion
+          if (line.includes('✅ Completed')) {
+            sendUpdate('thinking', 'Task completed, moving to next agent...');
+          }
+
+          // Extract final analysis
+          if (line.includes('Final Answer:') || line.includes('INVESTMENT OPPORTUNITIES')) {
+            sendUpdate('thinking', 'Generating final report...');
+          }
         }
-      });
-
-      // Join all responses or use the last one
-      if (allResponses.length > 0) {
-        finalResponse = allResponses.join('\n').trim();
       }
-    } else {
-      // If not SSE format, try to parse as JSON
-      try {
-        const parsed = JSON.parse(responseText);
-        finalResponse = extractCleanText(parsed);
-      } catch {
-        // Plain text response
-        finalResponse = responseText.trim();
-      }
-    }
-
-    // Final cleanup - remove any JSON artifacts that might have slipped through
-    if (finalResponse.includes('"content":') || finalResponse.includes('"parts":')) {
-      try {
-        const cleanupPattern = /.*"text":\s*"([^"]+)".*/;
-        const match = finalResponse.match(cleanupPattern);
-        if (match && match[1]) {
-          finalResponse = match[1];
-        }
-      } catch {
-        // Keep original if cleanup fails
-      }
-    }
-
-    const agentResponse = { output: finalResponse };
-
-    // Return the response
-    res.json({
-      output: agentResponse.output || agentResponse.result || agentResponse.response || agentResponse.predictions?.[0] || 'Response received from Agent Engine',
-      metadata: {
-        projectId: PROJECT_ID,
-        location: LOCATION,
-        agentEngineId: AGENT_ENGINE_ID,
-      },
-      rawResponse: agentResponse
     });
+
+    analysisProcess.stderr.on('data', (data) => {
+      console.error('Analysis error:', data.toString());
+    });
+
+    analysisProcess.on('close', (code) => {
+      if (code === 0) {
+        // Clean and format the final output
+        const cleanedOutput = cleanOutput(fullOutput);
+        sendUpdate('complete', cleanedOutput);
+      } else {
+        sendUpdate('error', 'Analysis failed. Please try again.');
+      }
+      res.end();
+    });
+
+    // Set a timeout for the process (10 minutes)
+    setTimeout(() => {
+      analysisProcess.kill();
+      sendUpdate('error', 'Analysis timed out. Please try with a more specific query.');
+      res.end();
+    }, 10 * 60 * 1000);
 
   } catch (error) {
-    console.error('API error:', error);
-    res.status(500).json({
-      error: 'Failed to query Agent Engine',
-      details: error.message,
-    });
+    console.error('Analysis API error:', error);
+    res.write(`data: ${JSON.stringify({ type: 'error', data: 'Failed to start analysis' })}\n\n`);
+    res.end();
   }
 });
+
+// Function to clean and format the output
+function cleanOutput(rawOutput) {
+  let cleaned = rawOutput;
+
+  // Remove all debug UI elements and unwanted content
+  cleaned = cleaned.replace(/╭[─┐┘└╯╮│]*╯/g, '');
+  cleaned = cleaned.replace(/│[^│]*│/g, '');
+  cleaned = cleaned.replace(/└[─┐┘└╯╮]*╯/g, '');
+  cleaned = cleaned.replace(/🚀 Crew: crew[\s\S]*?(?=\n)/g, '');
+  cleaned = cleaned.replace(/📋 Task: [a-f0-9-]+[\s\S]*?(?=\n)/g, '');
+  cleaned = cleaned.replace(/Status: [^\n]*/g, '');
+  cleaned = cleaned.replace(/🔧 Used Search[^\n]*/g, '');
+  cleaned = cleaned.replace(/Assigned to: [^\n]*/g, '');
+  cleaned = cleaned.replace(/├──[^\n]*/g, '');
+  cleaned = cleaned.replace(/└──[^\n]*/g, '');
+  cleaned = cleaned.replace(/nternet with Serper[^\n]*/g, '');
+
+  // Remove any M&A or financial news content
+  cleaned = cleaned.replace(/Financial News and Business Opportunities Report[\s\S]*?(?=\n\n|$)/g, '');
+  cleaned = cleaned.replace(/Deal Interests: M&A deals[^\n]*/g, '');
+  cleaned = cleaned.replace(/Industry Focus: technology and real estate[^\n]*/g, '');
+  cleaned = cleaned.replace(/M&A[\s\S]*?(?=\n\n|$)/g, '');
+  cleaned = cleaned.replace(/merger[^\n]*/gi, '');
+  cleaned = cleaned.replace(/acquisition[^\n]*/gi, '');
+  cleaned = cleaned.replace(/private equity[^\n]*/gi, '');
+  cleaned = cleaned.replace(/venture capital[^\n]*/gi, '');
+
+  // Remove additional debug elements
+  cleaned = cleaned.replace(/\[.*?\]/g, ''); // Remove bracketed debug info
+  cleaned = cleaned.replace(/Agent: [^\n]*/g, ''); // Remove agent debug lines
+  cleaned = cleaned.replace(/Using Tool: [^\n]*/g, ''); // Remove tool usage lines
+  cleaned = cleaned.replace(/Thought: [^\n]*/g, ''); // Remove thought lines
+  cleaned = cleaned.replace(/Action: [^\n]*/g, ''); // Remove action lines
+  cleaned = cleaned.replace(/Observation: [^\n]*/g, ''); // Remove observation lines
+
+  // Extract the final answer/report
+  let finalContent = '';
+
+  // Look for the coordinator's final answer first
+  const coordinatorMatch = cleaned.match(/Final Answer:\s*([\s\S]*?)(?=\n\n✅|$)/);
+  if (coordinatorMatch) {
+    finalContent = coordinatorMatch[1].trim();
+  } else {
+    // Look for multifamily content specifically
+    const multifamilyMatch = cleaned.match(/Multifamily[\s\S]*?(?=\n\n\n|$)/);
+    if (multifamilyMatch) {
+      finalContent = multifamilyMatch[0].trim();
+    } else {
+      // Fallback: get meaningful content from the end
+      const lines = cleaned.split('\n').filter(line => {
+        const lower = line.toLowerCase();
+        return line.trim() &&
+          !line.includes('═') &&
+          !line.includes('─') &&
+          !line.includes('🚀') &&
+          !line.includes('📋') &&
+          !line.includes('╭') &&
+          !line.includes('│') &&
+          !line.includes('└') &&
+          !line.includes('nternet') &&
+          !line.includes('Assigned to') &&
+          !line.includes('Status:') &&
+          !lower.includes('debug') &&
+          !lower.includes('error') &&
+          !lower.includes('warning');
+      });
+      finalContent = lines.slice(-50).join('\n');
+    }
+  }
+
+  // Clean up any remaining artifacts
+  finalContent = finalContent.replace(/\*\*\s*\n\s*/g, '**');
+  finalContent = finalContent.replace(/\n\s*\n\s*\n/g, '\n\n');
+  finalContent = finalContent.replace(/^\s*\n+/, ''); // Remove leading whitespace and newlines
+  finalContent = finalContent.trim();
+
+  // If the content is still not clean or too short, provide a fallback
+  if (finalContent.length < 100 || finalContent.includes('╭') || finalContent.includes('│')) {
+    finalContent = 'Analysis completed. The multifamily investment opportunities search has finished. Please check the thinking process above for detailed findings.';
+  }
+
+  return formatMarkdown(finalContent);
+}
+
+// Function to format markdown for display with professional memo formatting
+function formatMarkdown(text) {
+  let formatted = text;
+
+  // Remove markdown artifacts and clean up
+  formatted = formatted.replace(/\*\*/g, ''); // Remove ** markers
+  formatted = formatted.replace(/\*/g, ''); // Remove * markers
+  formatted = formatted.replace(/###?\s*/g, ''); // Remove ### and ## markers
+  formatted = formatted.replace(/^\s*\*\s*/gm, ''); // Remove bullet asterisks
+  formatted = formatted.replace(/^\s*•\s*/gm, ''); // Remove existing bullet points
+  formatted = formatted.replace(/^\s*-\s*/gm, ''); // Remove dash bullets
+
+  // Add memo header
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  formatted = `
+    <div class="memo-header">
+      <div class="memo-title">INVESTMENT ANALYSIS MEMORANDUM</div>
+      <div class="memo-meta">
+        <div class="memo-date">Date: ${currentDate}</div>
+        <div class="memo-from">From: HW Deal Sourcing Intelligence</div>
+        <div class="memo-subject">Subject: Multifamily Investment Opportunities Analysis</div>
+      </div>
+    </div>
+    <div class="memo-body">
+      ${formatted}
+    </div>
+  `;
+
+  // Handle URLs and property links (do this before other formatting)
+  formatted = formatted.replace(
+    /(https?:\/\/[^\s\)>,]+)/gi,
+    '<a href="$1" target="_blank" class="property-link">🔗 View Property Details</a>'
+  );
+
+  // Format section headers professionally
+  formatted = formatted.replace(
+    /^([A-Z][A-Za-z\s&\-:()]{10,}):\s*$/gm,
+    '<div class="memo-section-header">$1</div><br>'
+  );
+
+  // Format subsection headers
+  formatted = formatted.replace(
+    /^([A-Z][A-Za-z\s\-]{5,15}):\s*$/gm,
+    '<div class="memo-subsection">$1:</div><br>'
+  );
+
+  // Format property headers
+  formatted = formatted.replace(
+    /Property \d+:\s*(.+)/gi,
+    '<div class="property-entry"><div class="property-title">🏢 Property: $1</div>'
+  );
+
+  // Format numbered recommendations
+  formatted = formatted.replace(
+    /^(\d+)\.\s*(.+)$/gm,
+    '<div class="recommendation-item"><span class="recommendation-number">$1.</span> $2</div>'
+  );
+
+  // Remove this general bullet formatting to avoid extra bullets
+
+  // Format key property details with specific styling
+  formatted = formatted.replace(
+    /(Investment Rationale|Strategic Value Proposition|Risk-Return Profile|Due Diligence Roadmap):\s*(.+)/gi,
+    '<div class="property-detail"><span class="detail-type">$1:</span> $2</div>'
+  );
+
+  // Format other property details without bullets
+  formatted = formatted.replace(
+    /(Timeline|Recommended Investment Approach|Portfolio Fit|Competitive Market Position|Property|Location|Unit Count):\s*(.+)/gi,
+    '<div class="simple-detail"><span class="detail-label">$1:</span> $2</div>'
+  );
+
+  // Handle line breaks and spacing
+  formatted = formatted.replace(/\n\n+/g, '</div><div class="memo-paragraph">');
+  formatted = formatted.replace(/\n/g, '<br>');
+
+  // Wrap content in memo paragraphs
+  formatted = '<div class="memo-paragraph">' + formatted + '</div>';
+
+  // Add professional memo styling
+  return `
+    <div class="professional-memo">
+      <style>
+        .professional-memo {
+          max-width: 900px;
+          margin: 0 auto;
+          font-family: 'Times New Roman', Times, serif;
+          font-size: 14px;
+          line-height: 1.4;
+          color: #000;
+          background: #fff;
+          padding: 40px;
+          border: 1px solid #ccc;
+        }
+
+        .memo-header {
+          text-align: center;
+          border-bottom: 3px double #000;
+          padding-bottom: 20px;
+          margin-bottom: 30px;
+        }
+
+        .memo-title {
+          font-size: 20px;
+          font-weight: bold;
+          letter-spacing: 2px;
+          margin-bottom: 15px;
+          text-transform: uppercase;
+        }
+
+        .memo-meta {
+          text-align: left;
+          border: 1px solid #000;
+          padding: 15px;
+          background: #f9f9f9;
+        }
+
+        .memo-date, .memo-from, .memo-subject {
+          margin: 5px 0;
+          font-weight: bold;
+        }
+
+        .memo-body {
+          margin-top: 30px;
+        }
+
+        .memo-section-header {
+          font-size: 16px;
+          font-weight: bold;
+          text-transform: uppercase;
+          margin: 25px 0 15px 0;
+          padding: 10px;
+          background: #2c5aa0;
+          color: white;
+          text-align: center;
+          letter-spacing: 1px;
+          display: block;
+        }
+
+        .memo-subsection {
+          font-size: 15px;
+          font-weight: bold;
+          margin: 20px 0 10px 0;
+          text-decoration: underline;
+          color: #2c5aa0;
+          display: block;
+        }
+
+        .property-entry {
+          border: 1px solid #ddd;
+          margin: 15px 0;
+          padding: 15px;
+          background: #fafafa;
+        }
+
+        .property-title {
+          font-size: 15px;
+          font-weight: bold;
+          color: #1a472a;
+          margin-bottom: 10px;
+          border-bottom: 1px solid #1a472a;
+          padding-bottom: 5px;
+        }
+
+        .recommendation-item {
+          margin: 10px 0;
+          padding: 10px;
+          background: #f0f8ff;
+          border-left: 4px solid #2c5aa0;
+        }
+
+        .recommendation-number {
+          font-weight: bold;
+          color: #2c5aa0;
+          margin-right: 8px;
+        }
+
+        .memo-bullet {
+          margin: 8px 0 8px 20px;
+          position: relative;
+        }
+
+        .property-detail {
+          margin: 8px 0;
+          padding: 8px;
+          background: #f5f5f5;
+          border-left: 2px solid #666;
+        }
+
+        .detail-type {
+          font-weight: bold;
+          color: #2c5aa0;
+        }
+
+        .simple-detail {
+          margin: 5px 0;
+          padding: 3px 0;
+        }
+
+        .detail-label {
+          font-weight: bold;
+          color: #1f2937;
+        }
+
+        .property-link {
+          display: inline-block;
+          background: #2c5aa0;
+          color: white !important;
+          padding: 6px 12px;
+          border-radius: 4px;
+          text-decoration: none;
+          font-weight: bold;
+          margin: 5px 5px 5px 0;
+          font-size: 12px;
+          transition: background-color 0.3s;
+        }
+
+        .property-link:hover {
+          background: #1e3d72;
+          text-decoration: none;
+        }
+
+        .memo-paragraph {
+          margin: 15px 0;
+          text-align: justify;
+        }
+
+        @media print {
+          .professional-memo {
+            border: none;
+            padding: 20px;
+            font-size: 12px;
+          }
+          .property-link {
+            background: none;
+            color: #2c5aa0 !important;
+            border: 1px solid #2c5aa0;
+          }
+        }
+      </style>
+      ${formatted}
+    </div>
+  `;
+}
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    environment: {
-      project: process.env.GOOGLE_CLOUD_PROJECT,
-      location: process.env.GOOGLE_CLOUD_LOCATION,
-      agentEngineId: process.env.AGENT_ENGINE_ID,
-    }
+    service: 'CrewAI Investment Analysis'
   });
 });
 
@@ -285,7 +500,5 @@ app.get('*', (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log(`Agent Engine ID: ${process.env.AGENT_ENGINE_ID}`);
-  console.log(`Project: ${process.env.GOOGLE_CLOUD_PROJECT}`);
-  console.log(`Location: ${process.env.GOOGLE_CLOUD_LOCATION}`);
+  console.log(`HW DealSourcing Service Ready`);
 });

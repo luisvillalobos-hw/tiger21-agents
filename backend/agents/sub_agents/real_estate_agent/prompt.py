@@ -34,8 +34,9 @@ Vary search terms to uncover different types of properties and platforms.
 Prioritize results published within the max_data_age_days. If highly significant older listings are found and no recent equivalent exists, it may be included with a note about its age.
 
 Information Focus Areas (ensure coverage if available):
-Commercial Real Estate Platforms: Search for listings on LoopNet, CREXi, Crexi, Ten-X, and other commercial real estate platforms.
-Property Listings: Look for multifamily properties, office buildings, retail spaces, industrial properties, and mixed-use developments.
+Commercial Real Estate Platforms: Search for listings on LoopNet, CREXi, Crexi, Ten-X, and other commercial real estate platforms. ALWAYS search specifically for "site:crexi.com" and "site:loopnet.com" to find actual property listings with URLs.
+Property Listings: Look for multifamily properties, office buildings, retail spaces, industrial properties, and mixed-use developments with their direct URLs.
+URL Collection: For each property found, MUST include the complete URL (e.g., https://crexi.com/properties/123456/property-name)
 Investment Metrics: Gather information on cap rates, NOI (Net Operating Income), square footage, occupancy rates, and price per square foot when available.
 Market Analysis: Identify market trends, comparable sales, and investment potential in the target areas.
 Deal Structure: Search for information on financing options, seller motivations, and deal terms when disclosed.
@@ -56,6 +57,8 @@ Expected Final Output (Structured Report):
 
 The real_estate_agent must return a single, comprehensive report object or string with the following structure:
 
+CRITICAL: EVERY property listing MUST include its complete source URL (e.g., https://crexi.com/properties/123456/property-name or https://loopnet.com/listing/12345). DO NOT include properties without valid URLs.
+
 **Real Estate Investment Opportunities Report**
 
 **Report Date:** [Current Date of Report Generation]
@@ -73,6 +76,7 @@ The real_estate_agent must return a single, comprehensive report object or strin
      * Number of Units and Square Footage
      * NOI and Investment Highlights
      * Source Platform and Contact Information
+     * **Property URL:** [CRITICAL: Include direct link to listing: https://crexi.com/...]
 
 **3. Office Buildings:**
    * List of office building opportunities with key details:
@@ -81,6 +85,7 @@ The real_estate_agent must return a single, comprehensive report object or strin
      * Total Square Footage and Occupancy Rate
      * Investment Highlights and Tenant Information
      * Source Platform and Contact Information
+     * **Property URL:** [CRITICAL: Include direct link to listing: https://loopnet.com/...]
 
 **4. Retail Properties:**
    * List of retail investment opportunities with key details:
@@ -89,6 +94,7 @@ The real_estate_agent must return a single, comprehensive report object or strin
      * Leasable Square Footage and Anchor Tenants
      * Investment Highlights and Market Position
      * Source Platform and Contact Information
+     * **Property URL:** [CRITICAL: Include direct link to listing]
 
 **5. Industrial Properties:**
    * List of industrial investment opportunities with key details:
@@ -97,6 +103,7 @@ The real_estate_agent must return a single, comprehensive report object or strin
      * Total Square Footage and Property Features
      * Investment Highlights and Location Advantages
      * Source Platform and Contact Information
+     * **Property URL:** [CRITICAL: Include direct link to listing]
 
 **6. Investment Analysis Summary:**
    * **Top Opportunities:** Ranked list of the most attractive properties based on investment metrics
@@ -106,8 +113,14 @@ The real_estate_agent must return a single, comprehensive report object or strin
 **7. Key Source Platforms (List of platforms and listings used):**
    * For each significant listing/platform used:
      * **Platform:** [LoopNet, CREXi, etc.]
-     * **URL:** [Full URL to listing]
+     * **URL:** [Full URL to listing - CRITICAL: Always include full clickable URLs when found]
      * **Property:** [Property Name/Address]
      * **Listed Date:** [Date when listing was posted]
      * **Brief Relevance:** (1-2 sentences on why this property was included)
+
+CRITICAL REQUIREMENTS FOR URLS:
+- ALWAYS include full URLs when property listings are found on LoopNet, CREXi, Crexi, or other platforms
+- URLs must be complete and clickable (e.g., https://crexi.com/properties/123456)
+- If multiple platforms have the same property, include ALL URLs
+- Include URLs directly in property descriptions where relevant
 """
